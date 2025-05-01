@@ -1,0 +1,49 @@
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local placeId = 126884695634066  -- Grow a Garden Place ID
+local minAgeHours = 50  -- 50 hours old servers
+
+local function fetchOldServers()
+    local servers = {}
+    local cursor = ""
+    local now = os.time()
+
+    repeat
+        local url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?limit=100&sortOrder=Asc", placeId)
+        if cursor ~= "" then
+            url = url .. "&cursor=" .. cursor
+        end
+
+        local success, response = pcall(function()
+            return game:HttpGet(url)
+        end)
+
+        if success then
+            local data = HttpService:JSONDecode(response)
+            for _, server in pairs(data.data) do
+                local created = DateTime.fromIsoDate(server.created)
+                local ageInSeconds = os.difftime(now, created.UnixTimestamp)
+
+                if ageInSeconds >= (minAgeHours * 3600) then
+                    table.insert(servers, server.id)
+                end
+            end
+
+            cursor = data.nextPageCursor or ""
+        else
+            warn("Failed to get servers.")
+            break
+        end
+    until cursor == ""
+
+    return servers
+end
+
+local oldServers = fetchOldServers()
+
+if #oldServers > 0 then
+    local randomServerId = oldServers[math.random(1, #oldServers)]
+    TeleportService:TeleportToPlaceInstance(placeId, randomServerId, game.Players.LocalPlayer)
+else
+    warn("No old servers found.")
+end
